@@ -12,18 +12,18 @@ Build and publish the plugin:
     sbt publish-local
     
 Add the plugin to your project in project/plugins.sbt:
-    addSbtPlugin("de.djini" % "xsbt-capsule" % "0.1.0")
+    addSbtPlugin("de.djini" % "xsbt-capsule" % "0.2.0")
     
 Include the plugin in your project's build.sbt:
     
     capsuleSettings
 
-    capsuleApplicationClass     := Some("my.Main")
+    capsuleMainClass        := Some("my.Main")
     
-    capsuleJvmArgs              := Seq("-Xmx128m")
+    capsuleVmOptions        := Seq("-Xmx128m")
     
-    capsuleSystemProperties     := Map.empty
+    capsuleSystemProperties := Map.empty
     
-    capsuleMinJavaVersion       := Some("1.7.0")
+    capsuleMinJavaVersion   := Some("1.7.0")
     
 Run the capsule task to get a capsule jar.

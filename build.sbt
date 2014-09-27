@@ -4,7 +4,7 @@ name			:= "xsbt-capsule"
 
 organization	:= "de.djini"
 
-version			:= "0.1.0"
+version			:= "0.2.0"
 
 addSbtPlugin("de.djini" % "xsbt-classpath" % "0.10.0")
 	
