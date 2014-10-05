@@ -1,21 +1,20 @@
 import sbt._
 
-import java.util.jar.{ Manifest => JarManifest }
-import java.util.jar.Attributes.{ Name => AttrName }
-	
 import Keys.{ Classpath, TaskStreams }
 
+import xsbtUtil._
 import ClasspathPlugin._
 
 object CapsulePlugin extends Plugin {
-	private val capsuleData			= taskKey[Data]("build data helper")
+	private val capsuleClassName	= "Capsule.class"
+	private val execHeaderPath		= "exec-header.sh"
 	
 	//------------------------------------------------------------------------------
 	//## exported keys
 	
 	val capsule						= taskKey[File]("complete build, returns the created capsule jar")
-	val capsuleOutput				= taskKey[File]("where to put the capsule jar")
-	val capsuleName					= taskKey[String]("the name of the capsule jar")
+	val capsuleOutputDir			= taskKey[File]("where to put the capsule jar")
+	val capsuleJarName				= taskKey[String]("the name of the capsule jar")
 	val capsuleJarFile				= taskKey[File]("the capsule jar file")
 	val capsuleMainClass			= taskKey[Option[String]]("name of the main class")
 	val capsuleVmOptions			= settingKey[Seq[String]]("vm options like -Xmx128")
@@ -26,8 +25,10 @@ object CapsulePlugin extends Plugin {
 	lazy val capsuleSettings:Seq[Def.Setting[_]]	= 
 			classpathSettings ++ 
 			Vector(
-				capsuleData	:=
-						Data(
+				capsule		:=
+						buildTask(
+							streams				= Keys.streams.value,
+							assets				= classpathAssets.value,
 							jarFile				= capsuleJarFile.value,
 							applicationName		= Keys.version.value,
 							applicationVersion	= Keys.name.value,
@@ -37,16 +38,9 @@ object CapsulePlugin extends Plugin {
 							minJavaVersion		= capsuleMinJavaVersion.value,
 							prependExecHeader	= capsulePrependExecHeader.value
 						),
-				capsule		:=
-						buildTaskImpl(
-							streams	= Keys.streams.value,
-							assets	= classpathAssets.value,
-							data	= capsuleData.value
-						),
-						
-				capsuleOutput				:= Keys.crossTarget.value / "capsule",
-				capsuleName					:= Keys.name.value + "-" + Keys.version.value + ".jar",
-				capsuleJarFile				:= capsuleOutput.value / capsuleName.value,
+				capsuleOutputDir			:= Keys.crossTarget.value / "capsule",
+				capsuleJarName				:= Keys.name.value + "-" + Keys.version.value + ".jar",
+				capsuleJarFile				:= capsuleOutputDir.value / capsuleJarName.value,
 				capsuleMainClass			:= Keys.mainClass.value,
 				capsuleVmOptions			:= Seq.empty,
 				capsuleSystemProperties		:= Map.empty,
@@ -55,9 +49,11 @@ object CapsulePlugin extends Plugin {
 			)
 	
 	//------------------------------------------------------------------------------
-	//## data task
+	//## build task
 	
-	private case class Data(
+	private def buildTask(
+		streams:TaskStreams,	
+		assets:Seq[ClasspathAsset],
 		jarFile:File,
 		applicationName:String,
 		applicationVersion:String,
@@ -66,68 +62,54 @@ object CapsulePlugin extends Plugin {
 		systemProperties:Map[String,String],
 		minJavaVersion:Option[String],
 		prependExecHeader:Boolean
-	)
-	
-	//------------------------------------------------------------------------------
-	//## build task
-	
-	private def buildTaskImpl(
-		streams:TaskStreams,	
-		assets:Seq[ClasspathAsset],
-		data:Data
 	):File =
 			IO withTemporaryDirectory { tempDir =>
-				val capsuleClassName	= "Capsule.class"
+				val applicationClassGot	=
+						applicationClass	getOrElse
+						failWithError(streams, s"${capsuleMainClass.key.label} must be set")
+				val minJavaVersionGot	=
+						minJavaVersion		getOrElse
+						failWithError(streams, s"${capsuleMinJavaVersion.key.label} must be set")
+						
 				val capsuleClassFile	= tempDir / capsuleClassName
 				IO download (
-					getClass getResource capsuleClassName,
+					resourceURL(capsuleClassName),
 					capsuleClassFile
 				)
 				
-				val execHeaderName		= "exec-header.sh"
-				val execHeaderStream	= getClass getResourceAsStream execHeaderName
-				val execHeaderBytes	= IO readBytes execHeaderStream
-				execHeaderStream.close()
-				
 				val jarSources	=
-						(capsuleClassFile -> capsuleClassName) +: 
-						(assets map { asset => asset.jar -> asset.name })
+						(capsuleClassFile -> capsuleClassName) +:
+						(assets map { _.flatPathMapping })
 					
 				val manifest	= 
 						jarManifest(
-							// AName's MANIFEST_VERSION and MAIN_CLASS
+							// Attribute.Name.MANIFEST_VERSION
 							"Manifest-Version"		-> "1.0",
+							 // Attribute.Name.MAIN_CLASS
 							"Main-Class"			-> "Capsule",
-							"Application-Name"		-> data.applicationName,
-							"Application-Version"	-> data.applicationVersion,
-							"Application-Class"		-> (data.applicationClass getOrElse (sys error "applicationClass must be set")),
-							"System-Properties"		-> (data.systemProperties map { case (k, v) => k + "=" + v } mkString " "),
-							"JVM-Args"				-> (data.vmOptions mkString " "),
-							"Min-Java-Version"		-> (data.minJavaVersion getOrElse (sys error "minJavaVersion must be set"))
+							"Application-Name"		-> applicationName,
+							"Application-Version"	-> applicationVersion,
+							"Application-Class"		-> applicationClassGot,
+							"System-Properties"		-> (systemProperties map { case (k, v) => k + "=" + v } mkString " "),
+							"JVM-Args"				-> (vmOptions mkString " "),
+							"Min-Java-Version"		-> minJavaVersionGot
 						)
 						
-				streams.log info s"building capsule file ${data.jarFile}"
-				IO createDirectory data.jarFile.getParentFile
+				streams.log info s"building capsule file ${jarFile}"
+				jarFile.mkParentDirs()
 				
-				if (data.prependExecHeader) {
+				if (prependExecHeader) {
 					val tempJar		= tempDir / "capsule.jar"
 					IO jar		(jarSources, tempJar, manifest)
-					IO write	(data.jarFile, execHeaderBytes)
-					IO append	(data.jarFile, IO readBytes tempJar)
+					
+					IO write	(jarFile, resourceBytes(execHeaderPath))
+					IO append	(jarFile, IO readBytes tempJar)
 				}
 				else {
-					IO jar (jarSources, data.jarFile, manifest)
+					IO jar (jarSources, jarFile, manifest)
 				}
 			
-				data.jarFile setExecutable (true, false)
-				data.jarFile
+				jarFile setExecutable (true, false)
+				jarFile
 			}
-			
-	private def jarManifest(attrs:(String,String)*):JarManifest	= {
-		val manifest	= new JarManifest
-		attrs foreach { case (k, v) =>
-			manifest.getMainAttributes put (new AttrName(k), v)
-		}
-		manifest
-	}
 }
