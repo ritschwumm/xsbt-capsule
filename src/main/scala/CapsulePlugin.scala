@@ -1,17 +1,13 @@
-import sbt._
+package xsbtCapsule
 
-import Keys.{ Classpath, TaskStreams }
+import sbt._
+import Keys.TaskStreams
 
 import xsbtUtil._
-import ClasspathPlugin._
+import xsbtClasspath.{ Asset => ClasspathAsset, ClasspathPlugin }
+import xsbtClasspath.Import.classpathAssets
 
-object CapsulePlugin extends Plugin {
-	private val capsuleClassName	= "Capsule.class"
-	private val execHeaderPath		= "exec-header.sh"
-	
-	//------------------------------------------------------------------------------
-	//## exported keys
-	
+object Import {
 	val capsule						= taskKey[File]("complete build, returns the created capsule jar")
 	val capsuleOutputDir			= taskKey[File]("where to put the capsule jar")
 	val capsuleJarName				= taskKey[String]("the name of the capsule jar")
@@ -21,9 +17,28 @@ object CapsulePlugin extends Plugin {
 	val capsuleSystemProperties		= settingKey[Map[String,String]]("-D in the command line")
 	val capsuleMinJavaVersion		= settingKey[Option[String]]("minimum java version")
 	val capsulePrependExecHeader	= settingKey[Boolean]("include exec header")
+}
+
+object CapsulePlugin extends AutoPlugin {
+	//------------------------------------------------------------------------------
+	//## constants
 	
-	lazy val capsuleSettings:Seq[Def.Setting[_]]	= 
-			classpathSettings ++ 
+	private val capsuleClassName		= "Capsule.class"
+	
+	private val capsuleClassResource	= "/Capsule.class"
+	private val execHeaderResource		= "/exec-header.sh"
+	
+	//------------------------------------------------------------------------------
+	//## exports
+	
+	override def requires:Plugins		= ClasspathPlugin
+	
+	override def trigger:PluginTrigger	= allRequirements
+
+	lazy val autoImport	= Import
+	import autoImport._
+	
+	override def projectSettings:Seq[Def.Setting[_]]	=
 			Vector(
 				capsule		:=
 						buildTask(
@@ -49,7 +64,7 @@ object CapsulePlugin extends Plugin {
 			)
 	
 	//------------------------------------------------------------------------------
-	//## build task
+	//## tasks
 	
 	private def buildTask(
 		streams:TaskStreams,	
@@ -73,7 +88,7 @@ object CapsulePlugin extends Plugin {
 						
 				val capsuleClassFile	= tempDir / capsuleClassName
 				IO download (
-					resourceURL(capsuleClassName),
+					resourceURL(capsuleClassResource),
 					capsuleClassFile
 				)
 				
@@ -102,7 +117,7 @@ object CapsulePlugin extends Plugin {
 					val tempJar		= tempDir / "capsule.jar"
 					IO jar		(jarSources, tempJar, manifest)
 					
-					IO write	(jarFile, resourceBytes(execHeaderPath))
+					IO write	(jarFile, resourceBytes(execHeaderResource))
 					IO append	(jarFile, IO readBytes tempJar)
 				}
 				else {
