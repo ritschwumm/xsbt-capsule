@@ -65,7 +65,7 @@ object CapsulePlugin extends AutoPlugin {
 				capsuleJarFile				:= capsuleBuildDir.value / (capsulePackageName.value + ".jar"),
 				
 				capsulePackageName			:= Keys.name.value + "-" + Keys.version.value,
-				capsuleMainClass			:= Keys.mainClass.value,
+				capsuleMainClass			:= (Keys.mainClass in Runtime).value,
 				capsuleVmOptions			:= Seq.empty,
 				capsuleSystemProperties		:= Map.empty,
 				capsuleMinJavaVersion		:= None,
