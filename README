@@ -1,6 +1,6 @@
 A fat capsule plugin for sbt, see https://github.com/puniverse/capsule
 
-To build this code, get and install SBT from 
+To build this code, get and install SBT from
     https://github.com/sbt/sbt
 
 Get and install these plugins before building:
@@ -11,18 +11,18 @@ Build and publish the plugin:
     git clone git@github.com:ritschwumm/xsbt-capsule.git
     cd xsbt-capsule
     sbt publish-local
-    
+
 Add the plugin to your project in project/plugins.sbt:
     addSbtPlugin("de.djini" % "xsbt-capsule" % <version>)
-    
+
 Include the plugin in your project's build.sbt:
-    
+
     capsuleMainClass        := Some("my.Main")
-    
+
     capsuleVmOptions        := Seq("-Xmx128m")
-    
+
     capsuleSystemProperties := Map.empty
-    
+
     capsuleMinJavaVersion   := Some("1.7.0")
-    
+
 Run the capsule task to get a capsule jar.

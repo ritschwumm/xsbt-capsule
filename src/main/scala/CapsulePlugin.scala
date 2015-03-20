@@ -107,7 +107,7 @@ object CapsulePlugin extends AutoPlugin {
 						(capsuleClassFile -> capsuleClassName) +:
 						(assets map { _.flatPathMapping })
 					
-				val manifest	= 
+				val manifest	=
 						xu.jar manifest (
 							MANIFEST_VERSION.toString	-> "1.0",
 							MAIN_CLASS.toString			-> "Capsule",
