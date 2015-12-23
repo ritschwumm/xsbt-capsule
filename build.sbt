@@ -2,7 +2,7 @@ sbtPlugin		:= true
 
 name			:= "xsbt-capsule"
 organization	:= "de.djini"
-version			:= "1.6.1"
+version			:= "1.7.0"
 
 scalacOptions	++= Seq(
 	"-deprecation",

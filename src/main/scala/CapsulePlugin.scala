@@ -30,9 +30,9 @@ object CapsulePlugin extends AutoPlugin {
 	//------------------------------------------------------------------------------
 	//## constants
 	
-	private val capsuleClassName		= "Capsule.class"
-	
-	private val capsuleClassResource	= "/Capsule.class"
+	private val capsuleClassName		= "Capsule"
+	private val capsuleFileName			= capsuleClassName + ".class"
+	private val capsuleClassResource	= "/" + capsuleFileName
 	private val execHeaderResource		= "/exec-header.sh"
 	
 	//------------------------------------------------------------------------------
@@ -97,20 +97,20 @@ object CapsulePlugin extends AutoPlugin {
 							xu.fail logging (streams, s"${capsuleMinJavaVersion.key.label} must be set")
 						}
 						
-				val capsuleClassFile	= tempDir / capsuleClassName
+				val capsuleClassFile	= tempDir / capsuleFileName
 				IO download (
 					xu.classpath url capsuleClassResource,
 					capsuleClassFile
 				)
 				
 				val jarSources	=
-						(capsuleClassFile -> capsuleClassName) +:
+						(capsuleClassFile -> capsuleFileName) +:
 						(assets map { _.flatPathMapping })
 					
 				val manifest	=
 						xu.jar manifest (
 							MANIFEST_VERSION.toString	-> "1.0",
-							MAIN_CLASS.toString			-> "Capsule",
+							MAIN_CLASS.toString			-> capsuleClassName,
 							"Application-Name"			-> applicationName,
 							"Application-Version"		-> applicationVersion,
 							"Application-Class"			-> applicationClassGot,
