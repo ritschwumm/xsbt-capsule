@@ -1,3 +1,3 @@
 #!/bin/sh
 
-exec java -jar $0 "$@"
+exec java -jar "$0" "$@"
