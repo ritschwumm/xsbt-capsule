@@ -22,8 +22,11 @@ object Import {
 	val capsuleMainClass			= taskKey[Option[String]]("name of the main class")
 	val capsuleVmOptions			= settingKey[Seq[String]]("vm options like -Xmx128")
 	val capsuleSystemProperties		= settingKey[Map[String,String]]("-D in the command line")
+	val capsuleArgs					= settingKey[Seq[String]]("arguments in the command line")
 	val capsuleMinJavaVersion		= settingKey[Option[String]]("minimum java version")
 	val capsuleMakeExecutable		= settingKey[Boolean]("make the jar file executable on unixoid systems")
+
+	val capsuleExtras				= taskKey[Traversable[PathMapping]]("additional resources as a task to allow inclusion of packaged wars etc.")
 }
 
 object CapsulePlugin extends AutoPlugin {
@@ -47,9 +50,7 @@ object CapsulePlugin extends AutoPlugin {
 	
 	override lazy val projectSettings:Seq[Def.Setting[_]]	=
 			Vector(
-				capsuleBuildDir			:= Keys.crossTarget.value / "capsule",
-				
-				capsule		:=
+				capsule			:=
 						buildTask(
 							streams				= Keys.streams.value,
 							assets				= classpathAssets.value,
@@ -59,17 +60,23 @@ object CapsulePlugin extends AutoPlugin {
 							applicationClass	= capsuleMainClass.value,			
 							vmOptions			= capsuleVmOptions.value,
 							systemProperties	= capsuleSystemProperties.value,
+							args				= capsuleArgs.value,
 							minJavaVersion		= capsuleMinJavaVersion.value,
-							makeExecutable		= capsuleMakeExecutable.value
+							makeExecutable		= capsuleMakeExecutable.value,
+							extras				= capsuleExtras.value
 						),
+				capsuleBuildDir				:= Keys.crossTarget.value / "capsule",
 				capsuleJarFile				:= capsuleBuildDir.value / (capsulePackageName.value + ".jar"),
 				
 				capsulePackageName			:= Keys.name.value + "-" + Keys.version.value,
 				capsuleMainClass			:= (Keys.mainClass in Runtime).value,
 				capsuleVmOptions			:= Seq.empty,
 				capsuleSystemProperties		:= Map.empty,
+				capsuleArgs					:= Seq.empty,
 				capsuleMinJavaVersion		:= None,
-				capsuleMakeExecutable		:= false
+				capsuleMakeExecutable		:= false,
+				
+				capsuleExtras				:= Seq.empty
 			)
 	
 	//------------------------------------------------------------------------------
@@ -84,28 +91,31 @@ object CapsulePlugin extends AutoPlugin {
 		applicationClass:Option[String],
 		vmOptions:Seq[String],
 		systemProperties:Map[String,String],
+		args:Seq[String],
 		minJavaVersion:Option[String],
-		makeExecutable:Boolean
+		makeExecutable:Boolean,
+		extras:Traversable[PathMapping]
 	):File =
 			IO withTemporaryDirectory { tempDir =>
-				val applicationClassGot	=
+				val applicationClassGot:String	=
 						applicationClass	getOrElse {
 							xu.fail logging (streams, s"${capsuleMainClass.key.label} must be set")
 						}
-				val minJavaVersionGot	=
+				val minJavaVersionGot:String	=
 						minJavaVersion		getOrElse {
 							xu.fail logging (streams, s"${capsuleMinJavaVersion.key.label} must be set")
 						}
 						
-				val capsuleClassFile	= tempDir / capsuleFileName
+				val capsuleClassFile:File	= tempDir / capsuleFileName
 				IO download (
 					xu.classpath url capsuleClassResource,
 					capsuleClassFile
 				)
 				
-				val jarSources	=
-						(capsuleClassFile -> capsuleFileName) +:
-						(assets map { _.flatPathMapping })
+				val jarSources:Traversable[PathMapping]	=
+						Vector(capsuleClassFile -> capsuleFileName) ++
+						(assets map { _.flatPathMapping })			++
+						extras
 					
 				val manifest	=
 						xu.jar manifest (
@@ -116,6 +126,7 @@ object CapsulePlugin extends AutoPlugin {
 							"Application-Class"			-> applicationClassGot,
 							"System-Properties"			-> (systemProperties map { case (k, v) => k + "=" + v } mkString " "),
 							"JVM-Args"					-> (vmOptions mkString " "),
+							"Args"						-> (args mkString " "),
 							"Min-Java-Version"			-> minJavaVersionGot
 						)
 						
