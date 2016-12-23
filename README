@@ -23,6 +23,6 @@ Include the plugin in your project's build.sbt:
 
     capsuleSystemProperties := Map.empty
 
-    capsuleMinJavaVersion   := Some("1.7.0")
+    capsuleMinJavaVersion   := Some("1.8.0")
 
 Run the capsule task to get a capsule jar.
