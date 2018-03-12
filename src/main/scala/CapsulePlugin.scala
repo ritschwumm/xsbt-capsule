@@ -3,6 +3,7 @@ package xsbtCapsule
 import java.util.jar.Attributes.Name._
 
 import sbt._
+import sbt.io.Using
 import Keys.TaskStreams
 
 import xsbtUtil.implicits._
@@ -107,10 +108,16 @@ object CapsulePlugin extends AutoPlugin {
 						}
 						
 				val capsuleClassFile:File	= tempDir / capsuleFileName
+				
+				/*
 				IO download (
 					xu.classpath url capsuleClassResource,
 					capsuleClassFile
 				)
+				*/
+				Using.urlInputStream(xu.classpath url capsuleClassResource) { inputStream =>
+					IO.transfer(inputStream, capsuleClassFile)
+				}
 				
 				val jarSources:Traversable[PathMapping]	=
 						Vector(capsuleClassFile -> capsuleFileName) ++
