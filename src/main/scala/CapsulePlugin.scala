@@ -50,35 +50,35 @@ object CapsulePlugin extends AutoPlugin {
 	import autoImport._
 
 	override lazy val projectSettings:Seq[Def.Setting[_]]	=
-			Vector(
-				capsule			:=
-						buildTask(
-							streams				= Keys.streams.value,
-							assets				= classpathAssets.value,
-							jarFile				= capsuleJarFile.value,
-							applicationName		= Keys.name.value,
-							applicationVersion	= Keys.version.value,
-							applicationClass	= capsuleMainClass.value,
-							vmOptions			= capsuleVmOptions.value,
-							systemProperties	= capsuleSystemProperties.value,
-							args				= capsuleArgs.value,
-							minJavaVersion		= capsuleMinJavaVersion.value,
-							makeExecutable		= capsuleMakeExecutable.value,
-							extras				= capsuleExtras.value
-						),
-				capsuleBuildDir				:= Keys.crossTarget.value / "capsule",
-				capsuleJarFile				:= capsuleBuildDir.value / (capsulePackageName.value + ".jar"),
+		Vector(
+			capsule			:=
+				buildTask(
+					streams				= Keys.streams.value,
+					assets				= classpathAssets.value,
+					jarFile				= capsuleJarFile.value,
+					applicationName		= Keys.name.value,
+					applicationVersion	= Keys.version.value,
+					applicationClass	= capsuleMainClass.value,
+					vmOptions			= capsuleVmOptions.value,
+					systemProperties	= capsuleSystemProperties.value,
+					args				= capsuleArgs.value,
+					minJavaVersion		= capsuleMinJavaVersion.value,
+					makeExecutable		= capsuleMakeExecutable.value,
+					extras				= capsuleExtras.value
+				),
+			capsuleBuildDir				:= Keys.crossTarget.value / "capsule",
+			capsuleJarFile				:= capsuleBuildDir.value / (capsulePackageName.value + ".jar"),
 
-				capsulePackageName			:= Keys.name.value + "-" + Keys.version.value,
-				capsuleMainClass			:= (Keys.mainClass in Runtime).value,
-				capsuleVmOptions			:= Seq.empty,
-				capsuleSystemProperties		:= Map.empty,
-				capsuleArgs					:= Seq.empty,
-				capsuleMinJavaVersion		:= None,
-				capsuleMakeExecutable		:= false,
+			capsulePackageName			:= Keys.name.value + "-" + Keys.version.value,
+			capsuleMainClass			:= (Keys.mainClass in Runtime).value,
+			capsuleVmOptions			:= Seq.empty,
+			capsuleSystemProperties		:= Map.empty,
+			capsuleArgs					:= Seq.empty,
+			capsuleMinJavaVersion		:= None,
+			capsuleMakeExecutable		:= false,
 
-				capsuleExtras				:= Seq.empty
-			)
+			capsuleExtras				:= Seq.empty
+		)
 
 	//------------------------------------------------------------------------------
 	//## tasks
@@ -97,62 +97,64 @@ object CapsulePlugin extends AutoPlugin {
 		makeExecutable:Boolean,
 		extras:Traversable[PathMapping]
 	):File =
-			IO withTemporaryDirectory { tempDir =>
-				val applicationClassGot:String	=
-						applicationClass	getOrElse {
-							xu.fail logging (streams, s"${capsuleMainClass.key.label} must be set")
-						}
-				val minJavaVersionGot:String	=
-						minJavaVersion		getOrElse {
-							xu.fail logging (streams, s"${capsuleMinJavaVersion.key.label} must be set")
-						}
-
-				val capsuleClassFile:File	= tempDir / capsuleFileName
-
-				/*
-				IO download (
-					xu.classpath url capsuleClassResource,
-					capsuleClassFile
-				)
-				*/
-				Using.urlInputStream(xu.classpath url capsuleClassResource) { inputStream =>
-					IO.transfer(inputStream, capsuleClassFile)
+		IO withTemporaryDirectory { tempDir =>
+			val applicationClassGot:String	=
+				applicationClass	getOrElse {
+					xu.fail logging (streams, s"${capsuleMainClass.key.label} must be set")
+				}
+			val minJavaVersionGot:String	=
+				minJavaVersion		getOrElse {
+					xu.fail logging (streams, s"${capsuleMinJavaVersion.key.label} must be set")
 				}
 
-				val jarSources:Traversable[PathMapping]	=
-						Vector(capsuleClassFile -> capsuleFileName) ++
-						(assets map { _.flatPathMapping })			++
-						extras
+			val capsuleClassFile:File	= tempDir / capsuleFileName
 
-				val manifest	=
-						xu.jar manifest (
-							MANIFEST_VERSION.toString	-> "1.0",
-							MAIN_CLASS.toString			-> capsuleClassName,
-							"Application-Name"			-> applicationName,
-							"Application-Version"		-> applicationVersion,
-							"Application-Class"			-> applicationClassGot,
-							"System-Properties"			-> (systemProperties map { case (k, v) => k + "=" + v } mkString " "),
-							"JVM-Args"					-> (vmOptions mkString " "),
-							"Args"						-> (args mkString " "),
-							"Min-Java-Version"			-> minJavaVersionGot
-						)
-
-				streams.log info s"building capsule file ${jarFile}"
-				jarFile.mkParentDirs()
-
-				if (makeExecutable) {
-					val tempJar	= tempDir / "capsule.jar"
-					IO jar		(jarSources, tempJar, manifest)
-
-					IO write	(jarFile, xu.classpath bytes execHeaderResource)
-					IO append	(jarFile, IO readBytes tempJar)
-
-					jarFile setExecutable (true, false )
-				}
-				else {
-					IO jar (jarSources, jarFile, manifest)
-				}
-
-				jarFile
+			/*
+			IO download (
+				xu.classpath url capsuleClassResource,
+				capsuleClassFile
+			)
+			*/
+			Using.urlInputStream(xu.classpath url capsuleClassResource) { inputStream =>
+				IO.transfer(inputStream, capsuleClassFile)
 			}
+
+			val jarSources:Traversable[PathMapping]	=
+				Vector(capsuleClassFile -> capsuleFileName) ++
+				(assets map { _.flatPathMapping })			++
+				extras
+
+			val manifest	=
+				xu.jar manifest (
+					MANIFEST_VERSION.toString	-> "1.0",
+					MAIN_CLASS.toString			-> capsuleClassName,
+					"Application-Name"			-> applicationName,
+					"Application-Version"		-> applicationVersion,
+					"Application-Class"			-> applicationClassGot,
+					"System-Properties"			-> (systemProperties map { case (k, v) => k + "=" + v } mkString " "),
+					"JVM-Args"					-> (vmOptions mkString " "),
+					"Args"						-> (args mkString " "),
+					"Min-Java-Version"			-> minJavaVersionGot
+				)
+
+			streams.log info s"building capsule file ${jarFile}"
+			jarFile.mkParentDirs()
+
+			if (makeExecutable) {
+				val tempJar	= tempDir / "capsule.jar"
+				// TODO should we use a fixed timestamp?
+				IO jar		(jarSources, tempJar, manifest, None)
+
+				IO write	(jarFile, xu.classpath bytes execHeaderResource)
+				IO append	(jarFile, IO readBytes tempJar)
+
+				jarFile setExecutable (true, false )
+			}
+			else {
+				// TODO should we use a fixed timestamp?
+				IO jar (jarSources, jarFile, manifest, None)
+			}
+
+			jarFile
+		}
 }
